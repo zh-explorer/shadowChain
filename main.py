@@ -34,10 +34,10 @@ class Socks5Server(SocketServer.StreamRequestHandler):
             # 2. Request
             data = self.rfile.read(4)
             mode = ord(data[1])
-            addrtype = ord(data[3])
-            if addrtype == 1:       # IPv4
+            self.addrtype = ord(data[3])
+            if self.addrtype == 1:       # IPv4
                 addr = socket.inet_ntoa(self.rfile.read(4))
-            elif addrtype == 3:     # Domain name
+            elif self.addrtype == 3:     # Domain name
                 addr = self.rfile.read(ord(sock.recv(1)[0]))
             port = struct.unpack('>H', self.rfile.read(2))
             reply = "\x05\x00\x00\x01"
@@ -70,7 +70,10 @@ class Socks5Server(SocketServer.StreamRequestHandler):
         sock.send('\x05\x01\x00')
         if sock.recv(2) == '\x05\x00':
             ip,port = iplist.pop(0)
-            data = '\x05\x01\x00\x01' + socket.inet_aton(socket.gethostbyname(ip)) + struct.pack(">H",port)
+            if self.addrtype == 1:
+                data = '\x05\x01\x00\x01' + socket.inet_aton(socket.gethostbyname(ip)) + struct.pack(">H",port)
+            elif self.addrtype == 3:
+                data = '\x05\x01\x00\x03' + chr(len(ip)) +ip + struct.pack(">H", port)
             sock.send(data)
             data = sock.recv(4+4+2)
             if len(iplist) == 0:
