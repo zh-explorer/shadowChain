@@ -3,7 +3,7 @@ import logging
 
 def log_init():
     console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
+    console.setLevel(logging.DEBUG)
 
     file_log = logging.FileHandler("/tmp/shadow.log")
     file_log.setLevel(logging.INFO)
@@ -13,10 +13,10 @@ def log_init():
     fmt = logging.Formatter('[%(levelname)s] %(asctime)s  %(filename)s : %(message)s')
     file_log.setFormatter(fmt)
 
-    logger = logging.getLogger("shadow")
+    logger = logging.getLogger("asyncio")
     logger.addHandler(console)
     logger.addHandler(file_log)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.WARN)
     return logger
 
 

@@ -13,29 +13,36 @@ class BaseRoute(asyncio.Protocol):
         self.notify_ignore = False
         self.is_abort = False
 
+    def connection_made(self, transport):
+        self.transport = transport
+
     def connection_lost(self, exc):
         logger.debug("conn lost")
-        if self.is_abort:  # the conn is abort. do nothing need to do
-            return
         result = None
         if exc is not None:
             result = str(exc)
             logger.info("conn exception %s" % result)
-        self.close(result)
+        if not self.is_abort:  # the conn is close by some one. not close again
+            self.close(result)
 
     def data_received(self, data):
-        logger.debug("get data")
-        # logger.debug(data)
-
         self.peer_proto.write(data)
 
     def write(self, data):
+        # logger.debug(data)
         self.transport.write(data)
 
     def close(self, result):
+        self.is_abort = True
         self.transport.close()
         self.notify_ignore = True
-        self.peer_proto.notify_close(result)
+        if self.peer_proto is not None:
+            self.peer_proto.notify_close(result)
+
+    # do nothing but close. Should use for a exc close
+    def about(self):
+        self.is_abort = True
+        self.transport.abort()
 
     def notify_close(self, result):
         if self.notify_ignore:
@@ -44,6 +51,18 @@ class BaseRoute(asyncio.Protocol):
 
     def handle_peer_close(self, result):
         self.close(None)
+
+
+class BaseRouteClient(BaseRoute):
+    def __init__(self, loop, peer_proto, peer_transport):
+        super().__init__(loop)
+        self.peer_proto = peer_proto
+        self.peer_transport = peer_transport
+
+
+async def out_protocol_chains(host, port, loop, in_protocol, in_transport):
+    proto_func = partial(BaseRouteClient, loop, in_protocol, in_transport)
+    return await loop.create_connection(proto_func, host, port)
 
 
 # the two class below if just for test and example. useless
@@ -78,16 +97,6 @@ class BaseRouteServer(BaseRoute):
             self.transport.resume_reading()
 
         task.add_done_callback(conn_complete)
-
-
-class BaseRouteClient(BaseRoute):
-    def __init__(self, loop, peer_proto, peer_transport):
-        super().__init__(loop)
-        self.peer_proto = peer_proto
-        self.peer_transport = peer_transport
-
-    def connection_made(self, transport):
-        self.transport = transport
 
 
 if __name__ == '__main__':
