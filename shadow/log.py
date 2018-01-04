@@ -16,7 +16,7 @@ def log_init():
     logger = logging.getLogger("asyncio")
     logger.addHandler(console)
     logger.addHandler(file_log)
-    logger.setLevel(logging.WARN)
+    logger.setLevel(logging.DEBUG)
     return logger
 
 

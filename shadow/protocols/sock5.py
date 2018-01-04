@@ -1,10 +1,12 @@
-from shadow.log import logger
-from shadow.protocols.baseRoute import BaseServer, out_protocol_chains, BaseClient, BaseProtocolError
+import asyncio
+import logging
 import socket
 import struct
-import asyncio
 from functools import partial
-import logging
+
+from shadow import context
+from shadow.log import logger
+from shadow.protocols.baseRoute import BaseServer, out_protocol_chains, BaseClient, BaseProtocolError
 from shadow.unit.misc import check_host_type
 
 SOCK_SERVER_START = 1
@@ -159,7 +161,7 @@ class Sock5Server(BaseServer):
                 self.sock_decode(None)
             else:
                 logger.debug("conn complete")
-                self.peer_transport, self.peer_proto = future.result()
+                self.peer_proto, self.peer_transport = future.result()
                 self.transport.resume_reading()
                 self.sock_decode(None)
 
@@ -180,13 +182,18 @@ SOCK_CLIENT_ROUTE = 0
 class Sock5Client(BaseClient):
     def __init__(self, loop, prev_proto, origin_host, origin_port, target_host=None, target_port=None):
         super().__init__(loop, prev_proto, origin_host, origin_port)
+        if type(origin_host) == str:
+            origin_host = origin_host.encode()
+        if type(target_host) == str:
+            target_host = target_host.encode()
+
         if target_host is None and target_port is None:
-            self.target_host = bytes(origin_host)
-            self.target_port = bytes(origin_port)
+            self.target_host = origin_host
+            self.target_port = origin_port
         else:
             assert target_port is not None and target_host is not None
-            self.target_host = bytes(target_host)
-            self.target_port = bytes(target_port)
+            self.target_host = target_host
+            self.target_port = target_port
 
         self.host_type = check_host_type(self.target_host)
         if self.host_type == 4:
@@ -201,7 +208,8 @@ class Sock5Client(BaseClient):
 
         # do not throw connection event. until the conn is finish
 
-    def connection_made(self, transport):
+    def connection_made(self, transport, next_proto):
+        self.next_proto = next_proto
         self.transport = transport
         self.sock_status = SOCK_CLIENT_METHOD_REPLY
         self.next_proto.write(b"\x05\x01\x00")
@@ -232,7 +240,7 @@ class Sock5Client(BaseClient):
             request = bytearray(b"\x05\x01\x00")
             request.append(self.host_type)  # the host_type is the same in RFC1928
             if self.host_type == 1:
-                request += socket.inet_aton(self.target_host)
+                request += socket.inet_aton(str(self.target_host, encoding='ascii'))
             elif self.host_type == 3:
                 request.append(len(self.target_host))
                 request += self.target_host
@@ -265,6 +273,7 @@ class Sock5Client(BaseClient):
             self.peer_port = struct.unpack(b"!H", data[4:])[0]
             self.sock_status = SOCK_CLIENT_ROUTE
             self.request_all = True
+            self.prev_proto.connection_made(self.transport, self)
 
         elif self.sock_status == SOCK_CLIENT_GET_NDOAMIN:
             self.request_size = data[0] + 2
@@ -275,26 +284,33 @@ class Sock5Client(BaseClient):
             self.peer_port = struct.unpack(b"!H", data[-2:])[0]
             self.sock_status = SOCK_CLIENT_ROUTE
             self.request_all = True
+            self.prev_proto.connection_made(self.transport, self)
 
         elif self.sock_status == SOCK_CLIENT_GET_IPV6:
             self.peer_host = socket.inet_ntop(socket.AF_INET6, data[:16])
             self.peer_port = struct.unpack(b"!H", data[16:])[0]
             self.sock_status = SOCK_CLIENT_ROUTE
             self.request_all = True
+            self.prev_proto.connection_made(self.transport, self)
+
+        elif self.sock_status == SOCK_CLIENT_ROUTE:
+            self.prev_proto.data_received(bytes(data))
         else:
             raise Sock5Error("sock5 decode status error")
 
     def write(self, data):
-        self.next_proto.write()
+        self.next_proto.write(data)
 
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     loop.set_debug(enabled=True)
-    logging.getLogger('asyncio').setLevel(logging.WARN)
+    logging.getLogger('asyncio').setLevel(logging.DEBUG)
     get_server_proto = partial(Sock5Server, loop)
     coro = loop.create_server(get_server_proto, '0.0.0.0', 3333)
 
+    context.protocol_chains = [Sock5Client]
+    logger.debug(context.protocol_chains)
     server = loop.run_until_complete(coro)
     try:
         loop.run_forever()
@@ -304,5 +320,6 @@ if __name__ == '__main__':
     # Close the server
     server.close()
     loop.run_until_complete(server.wait_closed())
+    loop.shutdown_asyncgens()
     loop.stop()
     loop.close()

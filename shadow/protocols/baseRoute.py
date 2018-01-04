@@ -1,6 +1,6 @@
 import asyncio
 from functools import partial
-from shadow.context import out_host, out_port, protocol_chains
+from shadow import context
 from shadow.log import logger
 
 NEXT = 1
@@ -71,12 +71,10 @@ class BaseClient(object):
         self.origin_port = origin_port
         self.transport = None
 
-    def set_next_proto(self, next_proto):
+    def connection_made(self, transport, next_proto):
         self.next_proto = next_proto
-
-    def connection_made(self, transport):
         self.transport = transport
-        self.prev_proto.connection_made(transport)
+        self.prev_proto.connection_made(transport, self)
 
     def data_received(self, data):
         self.prev_proto.data_received(data)
@@ -115,12 +113,10 @@ class BaseClientTop(object):
         self.result_future = future
         self.transport = None
 
-    def set_next_proto(self, next_proto):
+    def connection_made(self, transport, next_proto):
         self.next_proto = next_proto
-
-    def connection_made(self, transport):
         self.transport = transport
-        self.result_future.set_result(self, transport)
+        self.result_future.set_result((self, transport))
 
     def data_received(self, data):
         self.peer_proto.write(data)
@@ -151,7 +147,7 @@ class BaseClientFinal(asyncio.Protocol):
 
     def connection_made(self, transport):
         self.transport = transport
-        self.prev_proto.connection_made(transport)
+        self.prev_proto.connection_made(transport, self)
 
     def connection_lost(self, exc):
         logger.debug("conn lost")
@@ -199,15 +195,13 @@ async def out_protocol_chains(host, port, loop, in_protocol):
     transport = None
     try:
         top = BaseClientTop(loop, in_protocol, f)
-
         prev = top
-        for protocol in protocol_chains:
+        for protocol in context.protocol_chains:
             proto = protocol(loop, prev, host, port)
-            prev.set_next_proto(proto)
             prev = proto
 
         protocol_func = partial(BaseClientFinal, loop, prev)
-        protocol, transport = await loop.create_connection(protocol_func, out_host, out_port)
+        protocol, transport = await loop.create_connection(protocol_func, context.out_host, context.out_port)
 
         ret = await f
     except BaseProtocolError as e:
