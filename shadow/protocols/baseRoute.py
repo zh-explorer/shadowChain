@@ -1,8 +1,8 @@
 import asyncio
 from functools import partial
 from shadow import context
-from shadow.log import logger
 
+logger = context.logger
 NEXT = 1
 PREV = 2
 

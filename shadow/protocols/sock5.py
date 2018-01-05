@@ -1,14 +1,12 @@
 import asyncio
-import logging
 import socket
 import struct
-from functools import partial
 
 from shadow import context
-from shadow.log import logger
 from shadow.protocols.baseRoute import BaseServer, out_protocol_chains, BaseClient, BaseProtocolError
 from shadow.unit.misc import check_host_type
 
+logger = context.logger
 SOCK_SERVER_START = 1
 SOCK_SERVER_GET_METHODS = 2
 SOCK_SERVER_REQUEST = 3
@@ -302,24 +300,4 @@ class Sock5Client(BaseClient):
         self.next_proto.write(data)
 
 
-if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    loop.set_debug(enabled=True)
-    logging.getLogger('asyncio').setLevel(logging.DEBUG)
-    get_server_proto = partial(Sock5Server, loop)
-    coro = loop.create_server(get_server_proto, '0.0.0.0', 3333)
 
-    context.protocol_chains = [Sock5Client]
-    logger.debug(context.protocol_chains)
-    server = loop.run_until_complete(coro)
-    try:
-        loop.run_forever()
-    except KeyboardInterrupt:
-        pass
-
-    # Close the server
-    server.close()
-    loop.run_until_complete(server.wait_closed())
-    loop.shutdown_asyncgens()
-    loop.stop()
-    loop.close()
