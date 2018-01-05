@@ -41,6 +41,7 @@ class BaseServer(asyncio.Protocol):
     def close(self, result):
         self.is_abort = True
         self.notify_ignore = True
+        self.raw_close(result)
         if self.peer_proto is not None:
             self.peer_proto.notify_close(result)
 

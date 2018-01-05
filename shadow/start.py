@@ -14,7 +14,6 @@ def init():
 
 
 if __name__ == '__main__':
-
     init()
     loop = asyncio.get_event_loop()
     loop.set_debug(enabled=True)
