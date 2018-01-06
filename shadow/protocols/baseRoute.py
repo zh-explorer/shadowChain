@@ -19,6 +19,11 @@ class BaseServer(asyncio.Protocol):
         self.notify_ignore = False
         self.is_abort = False
 
+        self.cache_data = bytearray()
+        self.cache_size = 0
+        self.request_size = None
+        self.request_all = False
+
     def connection_made(self, transport):
         self.transport = transport
 
@@ -32,6 +37,26 @@ class BaseServer(asyncio.Protocol):
             self.close(result)
 
     def data_received(self, data):
+        # logger.debug("get data")
+        # logger.debug(data)
+        self.cache_data += data
+        self.cache_size += len(data)
+        if self.request_all:
+            # logger.debug("here")
+            data = self.cache_data
+            self.cache_data = bytearray()
+            self.cache_size = 0
+            self.proto_decode(data)
+            return
+
+        while self.cache_size >= self.request_size != -1 and not self.request_all:  # decode until no enough data remain
+            data = self.cache_data[:self.request_size]
+            self.cache_data = self.cache_data[self.request_size:]
+            self.cache_size -= self.request_size
+            self.request_size = -1
+            self.proto_decode(data)
+
+    def proto_decode(self, data):
         self.peer_proto.write(data)
 
     def write(self, data):
@@ -72,12 +97,37 @@ class BaseClient(object):
         self.origin_port = origin_port
         self.transport = None
 
+        self.cache_data = bytearray()
+        self.cache_size = 0
+        self.request_size = None
+        self.request_all = False
+
     def connection_made(self, transport, next_proto):
         self.next_proto = next_proto
         self.transport = transport
         self.prev_proto.connection_made(transport, self)
 
     def data_received(self, data):
+        # logger.debug("get data")
+        # logger.debug(data)
+        self.cache_data += data
+        self.cache_size += len(data)
+        if self.request_all:
+            # logger.debug("here")
+            data = self.cache_data
+            self.cache_data = bytearray()
+            self.cache_size = 0
+            self.proto_decode(data)
+            return
+
+        while self.cache_size >= self.request_size != -1 and not self.request_all:  # decode until no enough data remain
+            data = self.cache_data[:self.request_size]
+            self.cache_data = self.cache_data[self.request_size:]
+            self.cache_size -= self.request_size
+            self.request_size = -1
+            self.proto_decode(data)
+
+    def proto_decode(self, data):
         self.prev_proto.data_received(data)
 
     def write(self, data):

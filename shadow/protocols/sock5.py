@@ -24,16 +24,12 @@ class Sock5Error(BaseProtocolError): pass
 class Sock5Server(BaseServer):
     def __init__(self, loop):
         super().__init__(loop)
-        self.cache_data = bytearray()
-        self.cache_size = 0
-        self.request_size = None
         self.sock_status = None
         self.n_methods = None
         self.cmd = None
         self.address_type = None
         self.target_host = None
         self.target_port = None
-        self.request_all = False
 
     def connection_made(self, transport):
         self.transport = transport
@@ -43,27 +39,7 @@ class Sock5Server(BaseServer):
         peername = transport.get_extra_info('peername')
         logger.info('Connection from {}'.format(peername))
 
-    def data_received(self, data):
-        # logger.debug("get data")
-        # logger.debug(data)
-        self.cache_data += data
-        self.cache_size += len(data)
-        if self.request_all:
-            # logger.debug("here")
-            data = self.cache_data
-            self.cache_data = bytearray()
-            self.cache_size = 0
-            self.sock_decode(data)
-            return
-
-        while self.cache_size >= self.request_size != -1 and not self.request_all:  # decode until no enough data remain
-            data = self.cache_data[:self.request_size]
-            self.cache_data = self.cache_data[self.request_size:]
-            self.cache_size -= self.request_size
-            self.request_size = -1
-            self.sock_decode(data)
-
-    def sock_decode(self, data):
+    def proto_decode(self, data):
         # logger.debug(self.sock_status)
         if self.sock_status == SOCK_SERVER_START:
             if data[0] != 5:
@@ -197,10 +173,6 @@ class Sock5Client(BaseClient):
         if self.host_type == 4:
             raise Sock5Error("The ipv6 is not support now")
         self.sock_status = None
-        self.request_size = None
-        self.cache_data = bytearray()
-        self.cache_size = 0
-        self.request_all = False
         self.peer_host = None
         self.peer_port = None
 
@@ -213,25 +185,7 @@ class Sock5Client(BaseClient):
         self.next_proto.write(b"\x05\x01\x00")
         self.request_size = 2
 
-    def data_received(self, data):
-        self.cache_data += data
-        self.cache_size += len(data)
-        if self.request_all:
-            # logger.debug("here")
-            data = self.cache_data
-            self.cache_data = bytearray()
-            self.cache_size = 0
-            self.sock_decode(data)
-            return
-
-        while self.cache_size >= self.request_size != -1 and not self.request_all:  # decode until no enough data remain
-            data = self.cache_data[:self.request_size]
-            self.cache_data = self.cache_data[self.request_size:]
-            self.cache_size -= self.request_size
-            self.request_size = -1
-            self.sock_decode(data)
-
-    def sock_decode(self, data):
+    def proto_decode(self, data):
         if self.sock_status == SOCK_CLIENT_METHOD_REPLY:
             if data != b'\x05\x00':  # this mean some error is happened
                 raise Sock5Error("no method support")
@@ -298,6 +252,3 @@ class Sock5Client(BaseClient):
 
     def write(self, data):
         self.next_proto.write(data)
-
-
-
