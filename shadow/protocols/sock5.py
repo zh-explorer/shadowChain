@@ -1,4 +1,4 @@
-from .baseProtocol import BaseProtocol, BaseServerTop, out_protocol_chains, in_protocol_chains, BaseProtocolError
+from .baseProtocol import BaseProtocol, BaseServerTop, out_protocol_chains, BaseProtocolError
 from shadow import context
 import asyncio
 import socket
