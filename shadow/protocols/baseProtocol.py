@@ -3,8 +3,6 @@ from functools import partial
 from shadow import context
 import types
 
-logger = context.logger
-
 NEXT = 1
 PREV = 2
 PEER = 3
@@ -14,10 +12,10 @@ class BaseProtocolError(Exception): pass
 
 
 class BaseProtocol(object):
-    def __init__(self, loop, prev_proto, target_host=None, target_port=None):
+    def __init__(self, loop, prev_proto, origin_host=None, origin_port=None):
         self.loop = loop
-        self.target_host = target_host
-        self.target_port = target_port
+        self.origin_host = origin_host
+        self.origin_port = origin_port
         self.prev_proto = prev_proto
         self.next_proto = None
         self.notify_ignore = False
@@ -28,7 +26,6 @@ class BaseProtocol(object):
         self.cache_data = bytearray()
         self.cache_size = 0
         self.request_size = None
-        self.request_all = False
 
     def connection_made(self, transport, next_proto):
         self.next_proto = next_proto
@@ -36,14 +33,14 @@ class BaseProtocol(object):
         self.receive_iter = self.received_data()
         assert isinstance(self.receive_iter, types.GeneratorType)
         try:
-            self.receive_iter.send(None)
+            self.request_size = self.receive_iter.send(None)
         except StopIteration:
             raise BaseProtocolError("can't start received_data generator")
 
         def made_connection_complete(future):
             exc = future.exception()
             if exc is not None:
-                logger.info("connection is not complete")
+                context.logger.info("connection is not complete")
             elif future.result():
                 self.prev_proto.connection_made(self.transport, self)
 
@@ -51,38 +48,45 @@ class BaseProtocol(object):
         self.connection_complete.add_done_callback(made_connection_complete)
         self.made_connection()
 
-    def data_received(self, data):
-        # logger.debug("get data")
-        # logger.debug(data)
-        self.cache_data += data
-        self.cache_size += len(data)
-        if self.request_all:
-            # logger.debug("here")
-            data = self.cache_data
-            self.cache_data = bytearray()
-            self.cache_size = 0
-            try:
-                self.receive_iter.send(data)
-            except StopIteration as e:
-                if e.value:  # normal stop, close the protocol
-                    self.close(None)
-                else:
-                    raise e  # not normal, throw it
+    def data_received(self, data=None):
+        # context.logger.debug("get data")
+        # context.logger.debug(data)
+        try:
+            self.receive_iter.send(data)
+        except StopIteration as e:
+            if not e.value:  # normal stop, close the protocol
+                raise e  # not normal, throw it
 
-            return
+    def read(self, size):
+        if size == 0:
+            if self.cache_size != 0:
+                data = self.cache_data
+                self.cache_size = 0
+                self.cache_data = bytearray()
+                return data
+            else:
+                data = yield None
+                return data
+        elif size == -1:
+            self.transport.pause_reading()
+            while True:
+                data = yield None
+                if not isinstance(data, bytes):
+                    self.transport.resume_reading()
+                    return data
+                self.cache_data += data
+                self.cache_size += len(data)
 
-        while self.cache_size >= self.request_size != -1 and not self.request_all:  # decode until no enough data remain
-            data = self.cache_data[:self.request_size]
-            self.cache_data = self.cache_data[self.request_size:]
-            self.cache_size -= self.request_size
-            self.request_size = -1
-            try:
-                self.receive_iter.send(data)
-            except StopIteration as e:
-                if e.value:  # normal stop, close the protocol
-                    self.close(None)
-                else:
-                    raise e  # not normal, throw it
+        while size > self.cache_size:
+            data = yield None
+            self.cache_data += data
+            self.cache_size += len(data)
+
+        data = self.cache_data[:size]
+        self.cache_data = self.cache_data[size:]
+        self.cache_size -= size
+        context.logger.debug(data)
+        return data
 
     def notify_close(self, result, from_where):
         if self.notify_ignore:
@@ -103,9 +107,8 @@ class BaseProtocol(object):
         pass
 
     def received_data(self):
-        yield True
         while True:
-            data = yield None
+            data = yield from self.read(0)
             self.prev_proto.data_received(data)
 
     def write(self, data):
@@ -131,11 +134,11 @@ class BaseProtocolFinal(asyncio.Protocol):
         self.prev_proto.connection_made(transport, self)
 
     def connection_lost(self, exc):
-        logger.debug("conn lost")
+        context.logger.debug("conn lost")
         result = None
         if exc is not None:
             result = str(exc)
-            logger.info("conn exception %s" % result)
+            context.logger.info("conn exception %s" % result)
         if not self.is_abort:  # the conn is close by some one. not close again
             self.close(result)
 
@@ -184,24 +187,24 @@ class BaseServerTop(BaseProtocol):
 
     def close(self, result=None):
         self.next_proto.notify_close(result, PREV)
-        self.peer_proto.notify_close(result, PEER)
-        self.close(result)
+        if self.peer_proto is not None:
+            self.peer_proto.notify_close(result, PEER)
+        self.raw_close(result)
 
     def notify_close(self, result, from_where):
         if self.notify_ignore:
             return
         if from_where == NEXT:
-            self.peer_proto.notify_close(result)
+            self.peer_proto.notify_close(result, PEER)
         elif from_where == PEER:
-            self.next_proto.notify_close(result)
+            self.next_proto.notify_close(result, PREV)
         else:
             raise BaseProtocolError("should not from other")
 
     def received_data(self):
-        yield True
         while True:
-            data = yield None
-            self.peer_proto.data_received(data)
+            data = yield from self.read(0)
+            self.peer_proto.write(data)
 
     def made_connection(self):
         raise BaseProtocolError("The virtual function should not be called")
@@ -222,9 +225,11 @@ class BaseClientTop(object):
         self.result_future.set_result((self, transport))
 
     def data_received(self, data):
+        context.logger.debug(data)
         self.peer_proto.write(data)
 
     def write(self, data):
+        context.logger.debug(data)
         self.next_proto.write(data)
 
     def close(self, result=None):
@@ -235,9 +240,9 @@ class BaseClientTop(object):
         if self.notify_ignore:
             return
         if from_where == NEXT:
-            self.peer_proto.notify_close(result)
+            self.peer_proto.notify_close(result, PEER)
         elif from_where == PEER:
-            self.next_proto.notify_close(result)
+            self.next_proto.notify_close(result, PREV)
         else:
             raise BaseProtocolError("should not from other")
 
@@ -247,16 +252,18 @@ async def out_protocol_chains(host, port, loop, in_protocol):
     transport = None
     try:
         prev = BaseClientTop(loop, in_protocol, f)
-        for protocol in context.protocol_chains:
+        for protocol in context.out_protocol_stack:
             prev = protocol(loop, prev, host, port)
 
         protocol_func = partial(BaseProtocolFinal, loop, prev)
-        protocol, transport = await loop.create_connection(protocol_func, context.out_host, context.out_port)
+        target_host = context.out_host if context.out_host is not None else host
+        target_port = context.out_port if context.out_port is not None else port
+        protocol, transport = await loop.create_connection(protocol_func, target_host, target_port)
 
         return await f
     except BaseProtocolError as e:
         # This error mean some protocol get a error. throw it and clean the conn
-        logger.error("The protocol get ad error %s" % e)
+        context.logger.error("The protocol get ad error %s" % e)
         if transport is not None and not transport.is_closing():
             transport.close()
         # throw it to peer
@@ -264,8 +271,8 @@ async def out_protocol_chains(host, port, loop, in_protocol):
 
 
 def in_protocol_chains(loop):
-    prev = BaseServerTop(loop)
-    for protocol in context.in_protocol_chains:
+    prev = context.in_protocol_stack[0](loop)
+    for protocol in context.in_protocol_stack[1:]:
         prev = protocol(loop, prev)
 
     return BaseProtocolFinal(loop, prev)

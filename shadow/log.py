@@ -8,9 +8,9 @@ def log_init():
     file_log = logging.FileHandler("/tmp/shadow.log")
     file_log.setLevel(logging.INFO)
 
-    fmt = logging.Formatter('[%(levelname)s] %(asctime)s  %(filename)s : %(message)s')
+    fmt = logging.Formatter('[%(levelname)s] %(asctime)s  %(filename)s %(lineno)d : %(message)s')
     console.setFormatter(fmt)
-    fmt = logging.Formatter('[%(levelname)s] %(asctime)s  %(filename)s : %(message)s')
+    fmt = logging.Formatter('[%(levelname)s] %(asctime)s  %(filename)s %(lineno)d : %(message)s')
     file_log.setFormatter(fmt)
 
     logger = logging.getLogger("asyncio")
@@ -25,3 +25,4 @@ logger = log_init()
 
 def get_logger():
     return logger
+

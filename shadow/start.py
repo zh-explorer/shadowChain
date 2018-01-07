@@ -4,12 +4,12 @@ from functools import partial
 
 from shadow import context
 from shadow.log import logger
-from shadow.protocols import Sock5Client
-from shadow.protocols.sock5 import Sock5Server
+from shadow.protocols import Socks5Client, Socks5Server, in_protocol_chains
 
 
 def init():
-    context.protocol_chains = [Sock5Client]
+    context.in_protocol_stack = [Socks5Server]
+    context.out_protocol_stack = [Socks5Client]
     context.logger = logger
 
 
@@ -18,10 +18,10 @@ if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     loop.set_debug(enabled=True)
     logging.getLogger('asyncio').setLevel(logging.DEBUG)
-    get_server_proto = partial(Sock5Server, loop)
+    get_server_proto = partial(in_protocol_chains, loop)
     coro = loop.create_server(get_server_proto, '0.0.0.0', 3333)
 
-    logger.debug(context.protocol_chains)
+    logger.debug(context.in_protocol_stack)
     server = loop.run_until_complete(coro)
     try:
         loop.run_forever()
