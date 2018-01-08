@@ -4,12 +4,12 @@ from functools import partial
 
 from shadow import context
 from shadow.log import logger
-from shadow.protocols import Socks5Client, Socks5Server, in_protocol_chains
+from shadow.protocols import Socks5Client, Socks5Server, in_protocol_chains, SCBase
 
 
 def init():
-    context.in_protocol_stack = [Socks5Server]
-    context.out_protocol_stack = [Socks5Client]
+    context.in_protocol_stack = []
+    context.out_protocol_stack = [SCBase]
     context.logger = logger
 
 

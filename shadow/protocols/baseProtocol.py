@@ -207,8 +207,8 @@ class BaseServerTop(BaseProtocol):
             self.peer_proto.write(data)
 
     def made_connection(self):
-        raise BaseProtocolError("The virtual function should not be called")
-
+        # raise BaseProtocolError("The virtual function should not be called")
+        pass
 
 class BaseClientTop(object):
     def __init__(self, loop, peer_proto, future):
@@ -271,7 +271,7 @@ async def out_protocol_chains(host, port, loop, in_protocol):
 
 
 def in_protocol_chains(loop):
-    prev = context.in_protocol_stack[0](loop)
+    prev = context.in_protocol_stack[0](loop) if len(context.in_protocol_stack) != 0 else BaseServerTop(loop)
     for protocol in context.in_protocol_stack[1:]:
         prev = protocol(loop, prev)
 
