@@ -1,7 +1,8 @@
 import asyncio
-from functools import partial
-from shadow import context
 import types
+from functools import partial
+
+from shadow import context
 
 NEXT = 1
 PREV = 2
@@ -12,10 +13,8 @@ class BaseProtocolError(Exception): pass
 
 
 class BaseProtocol(object):
-    def __init__(self, loop, prev_proto, origin_host=None, origin_port=None):
+    def __init__(self, loop, prev_proto):
         self.loop = loop
-        self.origin_host = origin_host
-        self.origin_port = origin_port
         self.prev_proto = prev_proto
         self.next_proto = None
         self.notify_ignore = False
@@ -25,28 +24,40 @@ class BaseProtocol(object):
 
         self.cache_data = bytearray()
         self.cache_size = 0
-        self.request_size = None
 
     def connection_made(self, transport, next_proto):
         self.next_proto = next_proto
         self.transport = transport
         self.receive_iter = self.received_data()
         assert isinstance(self.receive_iter, types.GeneratorType)
-        try:
-            self.request_size = self.receive_iter.send(None)
-        except StopIteration:
-            raise BaseProtocolError("can't start received_data generator")
 
-        def made_connection_complete(future):
-            exc = future.exception()
-            if exc is not None:
-                context.logger.info("connection is not complete")
-            elif future.result():
-                self.prev_proto.connection_made(self.transport, self)
+        # def made_connection_complete(future):
+        #     exc = future.exception()
+        #     if exc is not None:
+        #         context.logger.warning("connection is not complete")
+        #         context.logger.warning(str(exc))
+        #         self.close(False)
+        #     elif future.result():
+        #         self.prev_proto.connection_made(self.transport, self)
+        #     else:
+        #         context.logger.warning("connection failed")
+        #         self.close(False)
 
         self.connection_complete = self.loop.create_future()
-        self.connection_complete.add_done_callback(made_connection_complete)
+        self.connection_complete.add_done_callback(self.made_connection_complete)
         self.made_connection()
+
+    def made_connection_complete(self, future):
+        exc = future.exception()
+        if exc is not None:
+            context.logger.warning("connection is not complete")
+            context.logger.warning(str(exc))
+            self.close(False)
+        elif future.result():
+            self.prev_proto.connection_made(self.transport, self)
+        else:
+            context.logger.warning("connection failed")
+            self.close(False)
 
     def data_received(self, data=None):
         # context.logger.debug("get data")
@@ -85,7 +96,7 @@ class BaseProtocol(object):
         data = self.cache_data[:size]
         self.cache_data = self.cache_data[size:]
         self.cache_size -= size
-        context.logger.debug(data)
+        # context.logger.debug(data)
         return data
 
     def notify_close(self, result, from_where):
@@ -95,7 +106,7 @@ class BaseProtocol(object):
             self.prev_proto.notify_close(result, NEXT)
         else:
             self.next_proto.notify_close(result, PREV)
-        self.handle_peer_close(result)
+        self.handle_close_notify(result)
 
     def close(self, result=None):
         self.notify_ignore = True
@@ -103,7 +114,7 @@ class BaseProtocol(object):
         self.prev_proto.notify_close(result, NEXT)
         self.raw_close(result)
 
-    def raw_close(self, result=None):
+    def raw_close(self, result):
         pass
 
     def received_data(self):
@@ -115,9 +126,16 @@ class BaseProtocol(object):
         self.next_proto.write(data)
 
     def made_connection(self):
+        self.start_recevice()
         self.connection_complete.set_result(True)
 
-    def handle_peer_close(self, result):
+    def start_recevice(self):
+        try:
+            self.receive_iter.send(None)
+        except StopIteration:
+            raise BaseProtocolError("can't start received_data generator")
+
+    def handle_close_notify(self, result):
         self.raw_close(result)
 
 
@@ -174,16 +192,19 @@ class BaseServerTop(BaseProtocol):
         super().__init__(loop, None)
         self.peer_proto = None
 
-    def connection_made(self, transport, next_proto):
-        self.next_proto = next_proto
-        self.transport = transport
-        self.receive_iter = self.received_data()
-        assert isinstance(self.receive_iter, types.GeneratorType)
-        try:
-            self.receive_iter.send(None)
-        except StopIteration:
-            raise BaseProtocolError("can't start received_data generator")
-        self.made_connection()
+    def made_connection_complete(self, future):
+        '''
+        Because the server top not need to notify to other protocol
+        So overwrite it
+        '''
+        pass
+
+    # def connection_made(self, transport, next_proto):
+    #     self.next_proto = next_proto
+    #     self.transport = transport
+    #     self.receive_iter = self.received_data()
+    #     assert isinstance(self.receive_iter, types.GeneratorType)
+    #     self.made_connection()
 
     def close(self, result=None):
         self.next_proto.notify_close(result, PREV)
@@ -195,7 +216,8 @@ class BaseServerTop(BaseProtocol):
         if self.notify_ignore:
             return
         if from_where == NEXT:
-            self.peer_proto.notify_close(result, PEER)
+            if self.peer_proto is not None:
+                self.peer_proto.notify_close(result, PEER)
         elif from_where == PEER:
             self.next_proto.notify_close(result, PREV)
         else:
@@ -206,9 +228,43 @@ class BaseServerTop(BaseProtocol):
             data = yield from self.read(0)
             self.peer_proto.write(data)
 
-    def made_connection(self):
-        # raise BaseProtocolError("The virtual function should not be called")
-        pass
+    # def made_connection(self):
+    #
+    #     raise BaseProtocolError("The virtual function should not be called")
+        # pass
+
+    def connection(self, host, port):
+        def conn_complete(future):
+            exc = future.exception()
+            if exc is not None:
+                # raise exc
+                context.logger.info("conn error %s" % str(exc))
+                self.exc = exc
+                try:
+                    self.request_size = self.receive_iter.send(False)
+                except StopIteration as e:
+                    if not e.value:
+                        raise e
+            else:
+                context.logger.debug("conn complete")
+                self.peer_proto, self.peer_transport = future.result()
+                try:
+                    self.request_size = self.receive_iter.send(True)
+                except StopIteration as e:
+                    if not e.value:
+                        raise e
+
+        task = asyncio.ensure_future(out_protocol_chains(host, port, self.loop, self),
+                                     loop=self.loop)
+        task.add_done_callback(conn_complete)
+
+
+class BaseClient(BaseProtocol):
+    def __init__(self, loop, prev_proto, target_host, target_port):
+        super().__init__(loop, prev_proto)
+        self.target_host = target_host
+        self.target_port = target_port
+
 
 class BaseClientTop(object):
     def __init__(self, loop, peer_proto, future):
@@ -225,11 +281,11 @@ class BaseClientTop(object):
         self.result_future.set_result((self, transport))
 
     def data_received(self, data):
-        context.logger.debug(data)
+        # context.logger.debug(data)
         self.peer_proto.write(data)
 
     def write(self, data):
-        context.logger.debug(data)
+        # context.logger.debug(data)
         self.next_proto.write(data)
 
     def close(self, result=None):
@@ -251,9 +307,13 @@ async def out_protocol_chains(host, port, loop, in_protocol):
     f = loop.create_future()
     transport = None
     try:
+        if len(context.out_protocol_stack) >= 1:
+            func = context.out_protocol_stack[0]
+            func = partial(func, target_host=host, target_port=port)
+            context.out_protocol_stack[0] = func
         prev = BaseClientTop(loop, in_protocol, f)
         for protocol in context.out_protocol_stack:
-            prev = protocol(loop, prev, host, port)
+            prev = protocol(loop, prev)
 
         protocol_func = partial(BaseProtocolFinal, loop, prev)
         target_host = context.out_host if context.out_host is not None else host

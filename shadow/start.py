@@ -4,12 +4,12 @@ from functools import partial
 
 from shadow import context
 from shadow.log import logger
-from shadow.protocols import Socks5Client, Socks5Server, in_protocol_chains, SCBase
+from shadow.protocols import in_protocol_chains, SCSProxyServer
 
 
 def init():
-    context.in_protocol_stack = []
-    context.out_protocol_stack = [SCBase]
+    context.in_protocol_stack = [SCSProxyServer]
+    context.out_protocol_stack = []
     context.logger = logger
 
 
@@ -19,7 +19,7 @@ if __name__ == '__main__':
     loop.set_debug(enabled=True)
     logging.getLogger('asyncio').setLevel(logging.DEBUG)
     get_server_proto = partial(in_protocol_chains, loop)
-    coro = loop.create_server(get_server_proto, '0.0.0.0', 3333)
+    coro = loop.create_server(get_server_proto, '0.0.0.0', 9999)
 
     logger.debug(context.in_protocol_stack)
     server = loop.run_until_complete(coro)

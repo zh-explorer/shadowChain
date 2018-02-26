@@ -19,16 +19,19 @@ def sha256(byte):
 
 class AES(object):
     def __init__(self, token):
+        token = bytes(token)
         s = sha256(context.password + token)
         self.key = s[:16]
         self.iv = s[16:]
 
-        self.aes_object = aes.new(self.key, aes.MODE_CBC, self.iv)
+        self.aes_object = aes.new(self.key, aes.MODE_CFB, self.iv)
 
     def encrypt(self, data):
+        data = bytes(data)
         return self.aes_object.encrypt(data)
 
     def decrypt(self, data):
+        data = bytes(data)
         return self.aes_object.decrypt(data)
 
 

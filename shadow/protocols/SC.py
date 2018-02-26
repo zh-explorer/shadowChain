@@ -28,50 +28,48 @@ class SCBase(BaseProtocol):
         self.random_len = None
 
         self.noise_list = [[i] for i in range(60)]
-        self.all_data = b""
 
     def received_data(self):
         while True:
-            data = yield from self.read(32)
-            self.all_data += data
-            self.token = data[:16]
+            data = yield from self.read(24)
+            self.token = data[:8]
             self.aes = crypto_tools.AES(self.token)
-            data = self.aes.decrypt(data[16:])
+            data = self.aes.decrypt(data[8:])
             self.timestamp = crypto_tools.unpack_timestamp(data[:8])
             self.noise = data[8:]
-            if abs(self.timestamp - time.time()) > 30:
+            if abs(self.timestamp - time.time()) >= 30:
                 context.logger.info("time error")
                 self.close(None)
                 return True
-            token_v = crypto_tools.sha256(context.password + data)[:16]
+            token_v = crypto_tools.sha256(context.password + data)[:8]
             if token_v != self.token:
                 context.logger.info("token error")
                 self.close(None)
                 return True
             if not self.check_noise(self.noise, self.timestamp):
-                self.close(None)
                 context.logger.error("get a noise repetitive")
-                return True
-
-            data = yield from self.read(48)
-            self.all_data += data
-            self.aes.decrypt(data)
-            self.hash_sum = data[:32]
-            self.main_version = data[32]
-            self.data_len = struct.unpack(b'!L', data[33:37])[0]
-            self.random_len = data[37]
-
-            data = yield from self.read(self.data_len)
-            data = data[:-self.random_len]
-            self.all_data += data
-
-            self.all_data[32:64] = b'\x00' * 32
-            if crypto_tools.sha256(self.all_data) != self.hash_sum:
-                context.logger.error("hash sun check error")
                 self.close(None)
                 return True
 
+            data = yield from self.read(8)
             data = self.aes.decrypt(data)
+            self.main_version = data[0]
+            self.data_len = struct.unpack(b'!L', data[1:5])[0]
+            self.random_len = data[5]
+            # print(self.data_len)
+            # print(self.random_len)
+            data = yield from self.read(self.data_len - 32)
+            # print(data)
+            data = data[:-self.random_len]
+            data = self.aes.decrypt(data)
+            # context.logger.info("get")
+            # context.logger.info(self.token)
+            # context.logger.info(self.noise)
+            # context.logger.info(self.timestamp)
+            # context.logger.info(self.main_version)
+            # context.logger.info(self.data_len)
+            # context.logger.info(self.random_len)
+            # context.logger.info(data)
             self.prev_proto.data_received(data)
 
     def check_noise(self, noise, timestamp):
@@ -85,30 +83,26 @@ class SCBase(BaseProtocol):
         return True
 
     def write(self, data):
-
+        # context.logger.info("write")
+        # context.logger.info(data)
         timestamp = crypto_tools.packed_timestamp()
         noise = crypto_tools.random_byte(8)
-        token = crypto_tools.sha256(context.password + timestamp + noise)[:16]
+        token = crypto_tools.sha256(context.password + timestamp + noise)[:8]
         random_len = crypto_tools.random_byte(1)[0]
-        random_len = random_len % 40
+        random_len = random_len % 40 + 1
 
-        data_len = random_len + len(data) + 80
+        data_len = random_len + len(data) + 32
 
         data_buf = bytearray()
-        data_buf += token + timestamp + noise + b'\x00' * 32
+        data_buf += timestamp + noise
         data_buf.append(1)
         data_buf += struct.pack(b'!L', data_len)
         data_buf.append(random_len)
-        data_buf += crypto_tools.random_byte(10)
+        data_buf += crypto_tools.random_byte(2)
         data_buf += data
         data_buf += crypto_tools.random_byte(random_len)
 
-        hash_sum = crypto_tools.sha256(bytes(data_buf))
-        data_buf[32:64] = hash_sum
-
-        data_buf = bytes(data_buf)[16:]
-
         aes = crypto_tools.AES(token)
-        data_buf = token + aes.encrypt(data_buf)
+        data_buf = token + aes.encrypt(bytes(data_buf))
 
         self.next_proto.write(data_buf)
