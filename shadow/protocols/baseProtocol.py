@@ -1,8 +1,9 @@
 import asyncio
 import types
 from functools import partial
-
+from .NATTraversal import re_out_protocol_chains
 from shadow import context
+import traceback
 
 NEXT = 1
 PREV = 2
@@ -308,17 +309,20 @@ async def out_protocol_chains(host, port, loop, in_protocol):
     transport = None
     try:
         if len(context.out_protocol_stack) >= 1:
-            func = context.out_protocol_stack[0]
+            func = context.out_protocol_stack[context.first_client]
             func = partial(func, target_host=host, target_port=port)
             context.out_protocol_stack[0] = func
         prev = BaseClientTop(loop, in_protocol, f)
         for protocol in context.out_protocol_stack:
             prev = protocol(loop, prev)
 
-        protocol_func = partial(BaseProtocolFinal, loop, prev)
-        target_host = context.out_host if context.out_host is not None else host
-        target_port = context.out_port if context.out_port is not None else port
-        protocol, transport = await loop.create_connection(protocol_func, target_host, target_port)
+        target_host = context.target_host if context.target_host is not None else host
+        target_port = context.target_port if context.target_port is not None else port
+        if context.is_reverse_server:
+            protocol, transport = await re_out_protocol_chains(loop, prev)
+        else:
+            protocol_func = partial(BaseProtocolFinal, loop, prev)
+            protocol, transport = await loop.create_connection(protocol_func, target_host, target_port)
 
         return await f
     except BaseProtocolError as e:

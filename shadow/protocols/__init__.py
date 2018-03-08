@@ -33,3 +33,22 @@ protocol_list = {
         "protocol_factory": lambda config_dict: Socks5Client,
     },
 }
+
+protocol_map = {
+    "PF": {
+        "server": "PFServer",
+        "client": None
+    },
+    "SC": {
+        "server": "SCBase",
+        "client": "SCBase"
+    },
+    "SCSProxy": {
+        "server": "SCSProxyServer",
+        "client": "SCSProxyClient"
+    },
+    "Socks5": {
+        "server": "Socks5Server",
+        "client": "Socks5Client"
+    }
+}
