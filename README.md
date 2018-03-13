@@ -9,91 +9,68 @@ From The Shadow  : )
 3. 入上所言，项目可以任意扩展协议的数量，通过后续开发，可以支持复数协议。
 
 
-## 协议开发
-协议可以抽象的分成两种，server协议和client协议。程序运行时会使用一种server协议来监听某端口。作为代理数据的输入。client协议端支持复数的协议栈，通过回调函数的方式层级传播数据。
+## 安装
+TODO
 
-### 入口协议
-由于是瞎写着玩，开发接口耦合严重。撸协议自己阅读`protocol.BaseServer`源码。此类继承自[asyncio.Protocol](https://docs.python.org/3/library/asyncio-protocol.html#protocols)。所以支持protocol中所有回调。
+## 使用
+使用
+> scstart confg.json
 
-> BaseServer.loop
+启动进程
 
-创建类的时候传入的event_loop实例，异步调用会使用此loop
+该项目使用json作为配置文件格式。配置如下
+```json
+{
+  "in_protocol": [
+    "Socks5"
+  ],
+  "server_host": "0.0.0.0",
+  "server_port": 3333,
+  "out_protocol": [
+    {
+      "name": "SCSProxy",
+      "host": "108.61.171.167",
+      "port": 443
+    },
+    {
+      "name": "SC"
+    }
+  ],
+  "password": "explorer",
+  "is_reverse_server": false,
+  "is_reverse_client": false
+}
+```
 
-> BaseServer.transport
+其中`in_protocol`为输出协议，可以选择socks5或者SC协议作为server协议，同时需要指定`server_host`，`server_port`作为服务监听的端口以启动服务。
+`out_protocol`为输出协议,协议栈中的每个协议默认必须具有`name`属性，若协议为代理协议，则通常具有`host`与`port`属性。
+`password`为用户密码
+`is_reverse_server`和`is_reverse_client`为非必要属性。开启`is_reverse_server`表示本服NAT穿透时处在内网中的server端。此时指定`server_host`，`server_port`作为公网的转发服务器地址。而开启`is_reverse_client`表示本服务器在作为公网转发服务器接受来自内网的连接，此时`out_protocol`中最后一个被指定的地址作为服务器的监听地址。
 
-connection_made时传入的和此protocol对应的transport方法。请及时保存。
+### 协议栈
+这里我将协议分为三种类型， base类型，client类型，server类型。
+base类型不具有代理转发的功能。只对数据进行一定的变换，通常为全局的加密协议。
+client类型作为代理协议的客户端部分，有两个额外的参数`host`与`port`来表明该客户端所对应的服务端地址。
+server类型作为协议的服务端部分，通常会解析出连接需要转发到的实际地址。
 
-> BaseServer.peer_transport
+在配置文件中，`in_protocol`和`out_protocol`皆为数组，接受object（有额外参数）或者纯字符串（无额外参数）类型。
+其中`in_protocol`接受一个server类型协议，且必须为第一个，和多个base类型协议。如此，端口接受到的网络数据将按照从后往前的顺序经过各个协议解码，最后解析出端口发送的源数据与需要到达的端口
+而`in_protocol`任意数量的client协议与base协议。若为client协议，则需要使用object来一并传入服务端地址`host`和`port`。此地址会作为要转发的目标地址传递给下一个client协议，如此完成出口代理栈。通过多成包装，可以让数据经过多台不同协议网络节点的转发最终达到目标地址。注意，协议栈中的最后一个client协议的目的地址即为该服务器的时间连接地址。若协议栈中无client协议，则默认以server端解析出目标地址作为连接地址，实现代理链的最终出口访问。虽然此时可以添加base协议以编码输出，但通常会产生错误。
 
-这个东西是对端，也就是client端的transport实例，不过不推荐直接读写，所有数据因通过协议栈打包发送
+## 协议
 
-> BaseServer.peer_proto
+### socks5协议
+代理实现了基础的socks5协议，可以实现socks5转发。类型为server或者client，根据协议出现位置决定。
+PS：不建议使用socks5作为向公网转发的协议，因为socks5为明文协议且特征明显。只推荐作为高性能的本机转发协议。
 
-client端协议的实例，为`BaseClientTop`类。协议栈入口。
+### SC协议
+类型为base协议，为此项目特有协议。主要作用是加密流量，隐藏流量特征。
+PS：强烈推荐将SC协议作为协议栈的最终协议，进行全局的数据加密，以保障安全。
+具体请查阅SC协议文档.pdf
 
-> BaseServer.write(self, data)
+### SCProxy协议
+与socks5类似的简化代理协议，删除了socks5中不必要的连接。类型为server或者client，根据协议出现位置决定。
+推荐将其与SC协议配套使用，最为代理转发协议
 
-当client端有数据到来的时候会调用此方法。
-
-> BaseServer.connection_lost(self, exc)
-
-类中有一些默认操作，重载时请保留
-
-> BaseServer.handle_peer_close
-
-当对端关闭的时候会调用此方法，表示如何处理此问题。默认方法是调用raw_close()
-
-> BaseServer.notify_ignore
-
-设置为True，则`handle_peer_close`不会被调用。
-
-> BaseServer.raw_close(result)
-
-由于在close中有特殊处理(通知协议链中其他协议)，以及其他处理。提供raw_close函数来清理资源。raw会在close以及默认的connection_lose中调用.result参数表示关闭原因，暂时为None
-
-### 出口协议
-获取出口协议使用`baseRoute`包中的
-> async def out_protocol_chains(host, port, loop, in_protocol):
-
-传入参数是转发的目标位置，目标端口，当前使用的event_loop还有入口协议本身。
-
-出口协议可以从`baseRoute.BaseClient`继承而来。
-
-> baseRoute.BaseClient(loop, prev_proto, origin_host, origin_port)
-
-loop为传入的lopp，prev_proto为协议栈的上一层协议，origin为原始转发目标，origin_port为原始转发端口。
-当然由于协议栈中某一层协议具体发送向那个ip还是由配置文件制定的。这里的origin_host和origin_port作为备份。当然如果是最上层协议，还是需要使用这两个参数的。参数放在对应名字的类属性内。
-
-> BaseClient.connection_made(transport, next_proto)
-
-次函数由下层的协议调用。下层协议处理完连接和协议交互之后，调用此函数。next_proto和transport需要保存在对应名字的属性中。
-接受到此回调之后，可以开始本协议层的协商和交互。协商结束之后调用prev_proto的connection_make通知上层协议。
-
-> BaseClient.data_received(data)
-
-提示下层协议有数据到来。处理完成之后可以调用上层协议的data_received以通知上层
-
-> BaseClient.write(data)
-
-表示上层有数据到来。
-
-> BaseClient.close(self, result=None)
-
-同样不建议重载，使用raw_close
-
->BaseClient.handle_peer_close
-
-当协议栈中某一协议声明关闭时会调用此方法，表示如何处理此问题。默认方法是调用raw_close()
-
->BaseClient.notify_ignore
-
-设置为True，则`handle_peer_close`不会被调用。
-
-写好的协议栈只需要按照从上到下的顺序写入context的protocol_chains列表中即可。实例化时只会传入BaseClient中默认参数。其他参数可以使用偏函数传入。
-
-## 目前支持的协议与将要实现的协议
-1. ### sock5
-普通的sock5协议。目前只支持ipv4， connect方法。其他部分之之后完善
-
-2. ### SC
-shadow chain的私有协议。0.01版本协议手册见项目中SC协议文档部分
+### PF协议
+端口转发协议，类型为server，且具有额外的`host`和`port`参数。所有发送到此协议的数据其目标地址均为`host`和`port`指定地址。可以保证数据最终发往此地址，作为端口转发协议使用。
