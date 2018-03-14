@@ -68,11 +68,6 @@ schema = {
             "is_reverse_client": {
                 "type": "boolean",
                 "default": False
-            },
-            "timeout": {
-                "type": "integer",
-                "default": 300,
-                "minimum": 0
             }
         },
         "required": [

@@ -14,7 +14,7 @@
 
 from .sock5 import Socks5Client, Socks5Server
 from .baseProtocol import BaseServerTop, out_protocol_chains, in_protocol_chains, BaseProtocolError, BaseProtocol
-from .SC import SCBase
+from .SC import SCBase, SCBase_factory
 from .SCS import SCSProxyServer, SCSProxyClient
 from .NATTraversal import ReverseFinalClient, ReverseFinalServer, connection
 from .port_forward import PFServer
@@ -28,7 +28,7 @@ protocol_list = {
     },
     "SCBase": {
         "type": "base",
-        "protocol_factory": lambda config_dict: SCBase,
+        "protocol_factory": SCBase_factory
     },
     "SCSProxyServer": {
         "type": "server",

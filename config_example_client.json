@@ -1,0 +1,21 @@
+{
+  "in_protocol": [
+    "Socks5"
+  ],
+  "server_host": "0.0.0.0",
+  "server_port": 3333,
+  "out_protocol": [
+    {
+      "name": "SCSProxy",
+      "host": "108.61.171.167",
+      "port": 443
+    },
+    {
+      "name": "SC",
+      "timeout": 300
+    }
+  ],
+  "password": "password",
+  "is_reverse_server": false,
+  "is_reverse_client": false
+}

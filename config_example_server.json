@@ -1,0 +1,12 @@
+{
+  "in_protocol": [
+    "SCSProxy",
+    "SC"
+  ],
+  "server_host": "127.0.0.1",
+  "server_port": 3334,
+  "out_protocol": [],
+  "password": "password",
+  "is_reverse_server": false,
+  "is_reverse_client": false
+}
