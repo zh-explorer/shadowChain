@@ -40,8 +40,8 @@ class SCBase(BaseProtocol):
         self.data_len = None
         self.subtype = None
         self.random_len = None
-        if context.time_out != 0:
-            self.noise_list = [[i] for i in range(context.time_out * 2)]
+        if context.timeout != 0:
+            self.noise_list = [[i] for i in range(context.timeout * 2)]
 
     def received_data(self):
         while True:
@@ -51,7 +51,7 @@ class SCBase(BaseProtocol):
             data = self.aes.decrypt(data[8:])
             self.timestamp = crypto_tools.unpack_timestamp(data[:8])
             self.noise = data[8:]
-            if context.time_out != 0 and abs(self.timestamp - time.time()) >= context.time_out:
+            if context.timeout != 0 and abs(self.timestamp - time.time()) >= context.timeout:
                 context.logger.info("time error")
                 self.close(None)
                 return True
@@ -87,9 +87,9 @@ class SCBase(BaseProtocol):
             self.prev_proto.data_received(data)
 
     def check_noise(self, noise, timestamp):
-        if context.time_out == 0:
+        if context.timeout == 0:
             return True
-        index = timestamp % (context.time_out * 2)
+        index = timestamp % (context.timeout * 2)
         if self.noise_list[index][0] != timestamp:
             self.noise_list[index] = [timestamp]
         else:

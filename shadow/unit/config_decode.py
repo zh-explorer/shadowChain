@@ -48,6 +48,7 @@ def load_conf(conf):
     context.is_reverse_client = conf["is_reverse_client"]
     context.server_host = conf['server_host']
     context.server_port = conf['server_port']
+    context.timeout = conf['timeout']
 
     first = True
     for protocol in conf['in_protocol']:

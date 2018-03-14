@@ -14,7 +14,7 @@ From The Shadow  : )
 ## 安装
 此项目需要python3.5版本以上
 
-> pip3 install shadowChian
+> pip3 install shadowChain
 
 ## 使用
 使用
@@ -40,7 +40,7 @@ From The Shadow  : )
       "name": "SC"
     }
   ],
-  "password": "explorer",
+  "password": "you_password",
   "is_reverse_server": false,
   "is_reverse_client": false
 }

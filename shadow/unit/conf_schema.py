@@ -69,7 +69,7 @@ schema = {
                 "type": "boolean",
                 "default": False
             },
-            "time_out": {
+            "timeout": {
                 "type": "integer",
                 "default": 300,
                 "minimum": 0

@@ -35,6 +35,6 @@ class Context(object):
     is_reverse_server = False
     is_reverse_client = False
 
-    time_out = 30
+    timeout = None
 
 context = Context()
