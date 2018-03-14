@@ -1,5 +1,8 @@
-[![PyPI version](https://img.shields.io/pypi/v/shadowChain.svg)](https://pypi.python.org/pypi/shadowChain/0.0.1)
-[![License](https://img.shields.io/pypi/l/shadowChain.svg)](https://pypi.python.org/pypi/shadowChain/0.0.1)
+[![PyPI version](https://img.shields.io/pypi/v/shadowChain.svg)](https://pypi.python.org/pypi/shadowChain)
+[![License](https://img.shields.io/pypi/l/shadowChain.svg)](https://pypi.python.org/pypi/shadowChain)
+[![platform](https://img.shields.io/badge/platform-linux%7Cosx-lightgrey.svg)](https://pypi.python.org/pypi/shadowChain)
+[![codebeat badge](https://codebeat.co/badges/f62494b2-2d46-494e-a6a5-6fe264eb72bb)](https://codebeat.co/projects/github-com-zh-explorer-shadowchain-master)
+
 # ShadowChain
 *本项目为杭州电子科技大学通信工程学院大学生科研创新训练计划项目课题,仅供学习交流之用*
 From The Shadow  : )

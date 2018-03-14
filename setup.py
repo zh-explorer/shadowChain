@@ -17,7 +17,7 @@
 from setuptools import setup
 setup(
     name='shadowChain',
-    version='0.0.1',
+    version='0.0.1a3',
     packages=['shadow', 'shadow.unit', 'shadow.protocols'],
     url='https://github.com/zh-explorer/shadowChain',
     license='Apache License 2.0',
