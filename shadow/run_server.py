@@ -31,7 +31,7 @@ def init(loop, filename):
     load_conf_file(filename)
 
 
-if __name__ == '__main__':
+def main_start():
     if len(sys.argv) <= 1:
         print('must have conf file')
         exit(-1)
@@ -69,3 +69,6 @@ if __name__ == '__main__':
     loop.shutdown_asyncgens()
     loop.stop()
     loop.close()
+
+if __name__ == '__main__':
+    main_start()

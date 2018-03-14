@@ -1,3 +1,5 @@
+[![PyPI version](https://img.shields.io/pypi/v/shadowChain.svg)](https://pypi.python.org/pypi/shadowChain/0.0.1)
+[![License](https://img.shields.io/pypi/l/shadowChain.svg)](https://pypi.python.org/pypi/shadowChain/0.0.1)
 # ShadowChain
 *本项目为杭州电子科技大学通信工程学院大学生科研创新训练计划项目课题,仅供学习交流之用*
 From The Shadow  : )
