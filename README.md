@@ -12,7 +12,9 @@ From The Shadow  : )
 
 
 ## 安装
-TODO
+此项目需要python3.5版本以上
+
+> pip3 install shadowChian
 
 ## 使用
 使用
