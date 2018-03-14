@@ -23,7 +23,7 @@ logger = context.logger
 
 
 def SCBase_factory(config_dict):
-    if 'timeout' not in config_dict:
+    if config_dict is None or 'timeout' not in config_dict:
         timeout = 300
     else:
         timeout = int(config_dict['timeout'])
