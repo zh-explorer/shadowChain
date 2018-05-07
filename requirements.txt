@@ -1,2 +1,2 @@
-jsonschema==2.6.0
-pycrypto==2.6.1
+jsonschema>=2.3.0
+pycrypto>=2.5
