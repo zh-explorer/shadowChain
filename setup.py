@@ -17,7 +17,7 @@
 from setuptools import setup
 setup(
     name='shadowChain',
-    version='0.0.1a3',
+    version='0.0.1a4',
     packages=['shadow', 'shadow.unit', 'shadow.protocols'],
     url='https://github.com/zh-explorer/shadowChain',
     license='Apache License 2.0',
@@ -29,7 +29,7 @@ setup(
     ]},
     install_requires=[
         "jsonschema>2.3.0",
-        "pycrypto>2.5"
+        "pycryptodome>3.7"
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',

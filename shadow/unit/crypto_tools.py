@@ -1,4 +1,5 @@
 from Crypto.Cipher import AES as aes
+# from pyaes import AESModeOfOperationCFB as aes
 from hashlib import sha256 as sha
 from Crypto import Random
 from shadow.context import context
@@ -25,14 +26,24 @@ class AES(object):
         self.iv = s[16:]
 
         self.aes_object = aes.new(self.key, aes.MODE_CFB, self.iv)
+        # self.aes_object = aes(self.key, iv=self.iv)
 
     def encrypt(self, data):
         data = bytes(data)
+        # data = self.pkcs5_pad(data)
         return self.aes_object.encrypt(data)
 
     def decrypt(self, data):
         data = bytes(data)
+        # data = self.pkcs5_pad(data)
         return self.aes_object.decrypt(data)
+
+    @staticmethod
+    def pkcs5_pad(data):
+        print("+"*80)
+        pad_len = 16 - len(data) % 16
+        data += bytes([pad_len]) * pad_len
+        return data
 
 
 def packed_timestamp():
