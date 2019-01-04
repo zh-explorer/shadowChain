@@ -19,6 +19,7 @@ from .SCS import SCSProxyServer, SCSProxyClient
 from .NATTraversal import ReverseFinalClient, ReverseFinalServer, connection
 from .port_forward import PFServer
 from functools import partial
+from .Fast import Fast
 
 protocol_list = {
     "PFServer": {
@@ -46,6 +47,10 @@ protocol_list = {
         "type": "client",
         "protocol_factory": lambda config_dict: Socks5Client,
     },
+    "Fast": {
+        "type": "base",
+        "protocol_factory": lambda config_dict: Fast,
+    }
 }
 
 protocol_map = {
@@ -64,5 +69,9 @@ protocol_map = {
     "Socks5": {
         "server": "Socks5Server",
         "client": "Socks5Client"
+    },
+    "Fast": {
+        "server": "Fast",
+        "client": "Fast"
     }
 }
