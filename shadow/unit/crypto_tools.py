@@ -1,4 +1,6 @@
 from Crypto.Cipher import AES as aes
+from Crypto.Cipher import ARC4
+
 # from pyaes import AESModeOfOperationCFB as aes
 from hashlib import sha256 as sha
 from Crypto import Random
@@ -16,6 +18,29 @@ def random_byte(size):
 def sha256(byte):
     a = sha(byte)
     return a.digest()
+
+
+key = ''  # key
+
+
+def crypto(string):
+    sbox = []
+    for i in range(256):
+        sbox.append(i)
+    j = 0
+    for i in range(256):
+        j = (sbox[i] + j + ord(key[i % 16])) % 0x100
+        sbox[i], sbox[j] = sbox[j], sbox[i]
+
+
+class rc4(object):
+    def __init__(self, key):
+        key = bytes(key)
+        tempkey = sha256(key).digest()
+        self.cipher = ARC4.new(tempkey)
+
+    def encrypt(self, data):
+        return self.cipher(data)
 
 
 class AES(object):
@@ -40,7 +65,7 @@ class AES(object):
 
     @staticmethod
     def pkcs5_pad(data):
-        print("+"*80)
+        print("+" * 80)
         pad_len = 16 - len(data) % 16
         data += bytes([pad_len]) * pad_len
         return data
