@@ -44,6 +44,8 @@ def make_validator():
 def load_conf(conf):
     top_validator.validate(conf)
     context.password = conf["password"].encode()
+    if "log_file" in conf:
+        context.log_file = conf["log_file"].encode()
     context.is_reverse_server = conf["is_reverse_server"]
     context.is_reverse_client = conf["is_reverse_client"]
     context.server_host = conf['server_host']
