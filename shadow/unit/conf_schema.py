@@ -61,6 +61,9 @@ schema = {
             "password": {
                 "type": "string"
             },
+            "log_file": {
+                "type": "string"
+            },
             "is_reverse_server": {
                 "type": "boolean",
                 "default": False

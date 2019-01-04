@@ -13,7 +13,6 @@
 # limitations under the License.
 # store some config and context
 
-
 class Context(object):
     logger = None
     main_loop = None
@@ -34,5 +33,8 @@ class Context(object):
 
     is_reverse_server = False
     is_reverse_client = False
+
+    log_file = None
+
 
 context = Context()
