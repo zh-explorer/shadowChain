@@ -1,0 +1,2 @@
+jsonschema>=2.3.0
+pycrypto>=2.5
