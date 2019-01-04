@@ -36,11 +36,11 @@ def crypto(string):
 class rc4(object):
     def __init__(self, key):
         key = bytes(key)
-        tempkey = sha256(key).digest()
+        tempkey = sha256(key)
         self.cipher = ARC4.new(tempkey)
 
     def encrypt(self, data):
-        return self.cipher(data)
+        return self.cipher.encrypt(data)
 
 
 class AES(object):
