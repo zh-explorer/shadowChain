@@ -24,6 +24,8 @@ class PFServer(BaseServerTop):
     def made_connection(self):
         host, port = self.transport.get_extra_info('peername')
         context.logger.info("a new port forward from %s:%d" % (host, port))
+        self.start_recevice()
+        self.connection_complete.set_result(True)
         self.connection(self.target_host, self.target_port)
 
     def received_data(self):

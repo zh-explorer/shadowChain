@@ -14,6 +14,7 @@
 
 import asyncio
 import types
+import socket
 from functools import partial
 from .NATTraversal import re_out_protocol_chains
 from shadow import context
@@ -243,10 +244,10 @@ class BaseServerTop(BaseProtocol):
             data = yield from self.read(0)
             self.peer_proto.write(data)
 
-    # def made_connection(self):
-    #
-    #     raise BaseProtocolError("The virtual function should not be called")
-        # pass
+            # def made_connection(self):
+            #
+            #     raise BaseProtocolError("The virtual function should not be called")
+            # pass
 
     def connection(self, host, port):
         def conn_complete(future):
@@ -336,7 +337,8 @@ async def out_protocol_chains(host, port, loop, in_protocol):
             protocol, transport = await re_out_protocol_chains(loop, prev)
         else:
             protocol_func = partial(BaseProtocolFinal, loop, prev)
-            protocol, transport = await loop.create_connection(protocol_func, target_host, target_port)
+            protocol, transport = await loop.create_connection(protocol_func, target_host, target_port,
+                                                               family=socket.AF_INET)   # force use ipv4
 
         return await f
     except BaseProtocolError as e:

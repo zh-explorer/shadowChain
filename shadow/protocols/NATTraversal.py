@@ -14,6 +14,7 @@
 import asyncio
 from shadow import context
 from ..unit.crypto_tools import sha256, random_byte
+import socket
 from . import baseProtocol
 from functools import partial
 import time
@@ -222,7 +223,8 @@ async def coro_connection(loop, size):
         while True:
             protocol_func = partial(ReverseFinalClient, loop)
             try:
-                await loop.create_connection(protocol_func, context.server_host, context.server_port)
+                await loop.create_connection(protocol_func, context.server_host, context.server_port,
+                                             family=socket.AF_INET)
                 break
             except OSError as exc:
                 context.logger.warning("conn error %s" % str(exc))
