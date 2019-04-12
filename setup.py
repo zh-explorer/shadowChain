@@ -46,5 +46,5 @@ setup(
         'Source': 'https://github.com/zh-explorer/shadowChain',
         'Tracker': 'https://github.com/zh-explorer/shadowChain/issues',
     },
-    python_requires='~=3.3',
+    python_requires='>=3.5.2, <4',
 )
