@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .sock5 import Socks5Client, Socks5Server
+from .sock5 import Socks5Client, Socks5Server, Socks5_factory
 from .baseProtocol import BaseServerTop, out_protocol_chains, in_protocol_chains, BaseProtocolError, BaseProtocol
 from .SC import SCBase, SCBase_factory
 from .SCS import SCSProxyServer, SCSProxyClient
@@ -41,11 +41,11 @@ protocol_list = {
     },
     "Socks5Server": {
         "type": "server",
-        "protocol_factory": lambda config_dict: Socks5Server,
+        "protocol_factory": lambda config_dict: Socks5_factory(config_dict, Socks5Server),
     },
     "Socks5Client": {
         "type": "client",
-        "protocol_factory": lambda config_dict: Socks5Client,
+        "protocol_factory": lambda config_dict: Socks5_factory(config_dict, Socks5Client),
     },
     "Fast": {
         "type": "base",

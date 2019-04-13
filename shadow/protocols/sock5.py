@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from functools import partial
+
 from .baseProtocol import BaseProtocol, BaseServerTop, out_protocol_chains, BaseProtocolError, BaseClient
 from shadow import context
 import asyncio
@@ -22,13 +24,31 @@ from shadow.unit.misc import check_host_type
 class Socks5Error(BaseProtocolError): pass
 
 
+def Socks5_factory(config_dict, protocol):
+    username = None
+    password = None
+    if config_dict is not None:
+        if "username" in config_dict:
+            username = config_dict['username']
+            assert len(username) < 256
+        if "password" in config_dict:
+            password = config_dict['password']
+            assert len(password) < 256
+    return partial(protocol, username=username, password=password)
+
+
 class Socks5Server(BaseServerTop):
-    def __init__(self, loop):
+    def __init__(self, loop, username, password):
         super().__init__(loop)
         self.cmd = None
         self.address_type = None
         self.target_host = None
         self.target_port = None
+        self.auth = False
+        if username is not None or password is not None:
+            self.auth = True
+            self.username = username
+            self.password = password
 
     def received_data(self):
         data = yield from self.read(2)
@@ -37,11 +57,49 @@ class Socks5Server(BaseServerTop):
             self.close(None)
             return True
         data = yield from self.read(data[1])
-        if b"\x00" not in data:
-            self.next_proto.write(b"\x05\xff")
-            self.close(None)
-            return True
-        self.next_proto.write(b'\x05\x00')
+
+        if self.auth is True:
+            if b'\x02' not in data:
+                self.next_proto.write(b"\x05\xff")
+                self.close(None)
+                return True
+            self.next_proto.write(b'\x05\x02')
+            data = yield from self.read(1)
+            if data[0] != 1:
+                self.next_proto.write(b"\x01\xff")
+                self.close()
+                return True
+            data = yield from self.read(1)
+            if data[0] == 0:
+                if self.username is not None:
+                    self.next_proto.write(b"\x01\xff")
+                    self.close()
+                    return True
+            else:
+                name = yield from self.read(data[0])
+                if name != self.username.encode():
+                    self.next_proto.write(b"\x01\xff")
+                    self.close()
+                    return True
+            data = yield from self.read(1)
+            if data[0] == 0:
+                if self.password is not None:
+                    self.next_proto.write(b"\x01\xff")
+                    self.close()
+                    return True
+            else:
+                passwd = yield from self.read(data[0])
+                if passwd != self.password.encode():
+                    self.next_proto.write(b"\x01\xff")
+                    self.close()
+                    return True
+            self.next_proto.write(b"\x01\x00")
+        else:
+            if b"\x00" not in data:
+                self.next_proto.write(b"\x05\xff")
+                self.close(None)
+                return True
+            self.next_proto.write(b'\x05\x00')
         data = yield from self.read(4)
         if data[0] != 5 or data[2] != 0:
             self.replies_error(1)
@@ -87,8 +145,7 @@ class Socks5Server(BaseServerTop):
 
 
 class Socks5Client(BaseClient):
-    def __init__(self, loop, prev_proto, target_host, target_port):
-
+    def __init__(self, loop, prev_proto, target_host, target_port, password, username):
         if type(target_host) == str:
             target_host = target_host.encode()
 
@@ -99,17 +156,39 @@ class Socks5Client(BaseClient):
             raise Socks5Error("The ipv6 is not support now")
         self.peer_host = None
         self.peer_port = None
+        self.auth = False
+        if username is not None or password is not None:
+            self.auth = True
+            self.username = username
+            self.password = password
 
     def made_connection(self):
         self.start_recevice()
-        self.next_proto.write(b"\x05\x01\x00")
+        if self.auth is True:
+            self.next_proto.write(b"\x05\x02\x00\x02")
+        else:
+            self.next_proto.write(b"\x05\x01\x00")
 
     def received_data(self):
         data = yield from self.read(2)
         if data != b'\x05\x00':  # this mean some error is happened
-            self.close()
-            self.connection_complete.set_result(False)
-            raise Socks5Error("no method support")
+            if data != b'\x05\x02':
+                self.close()
+                self.connection_complete.set_result(False)
+                raise Socks5Error("no method support")
+            else:
+                request = bytearray(b'\x01')
+                request.append(len(self.username))
+                request += bytearray(self.username.encode())
+                request.append(len(self.password))
+                request += bytearray(self.password.encode())
+                self.next_proto.write(request)
+                data = yield from self.read(2)
+                if data != b'\x01\x00':
+                    context.logger.info("socks5 auth failed")
+                    self.close(None)
+                    return True
+
         request = bytearray(b"\x05\x01\x00")
         request.append(self.host_type)  # the host_type is the same in RFC1928
         if self.host_type == 1:
