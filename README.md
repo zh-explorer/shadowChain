@@ -1,6 +1,6 @@
 [![PyPI version](https://img.shields.io/pypi/v/shadowChain.svg)](https://pypi.python.org/pypi/shadowChain)
 [![License](https://img.shields.io/pypi/l/shadowChain.svg)](https://pypi.python.org/pypi/shadowChain)
-[![platform](https://img.shields.io/badge/platform-linux%7Cosx-lightgrey.svg)](https://pypi.python.org/pypi/shadowChain)
+[![platform](https://img.shields.io/badge/platform-linux%7Cosx%7Cwin-lightgrey.svg)](https://pypi.python.org/pypi/shadowChain)
 [![codebeat badge](https://codebeat.co/badges/f62494b2-2d46-494e-a6a5-6fe264eb72bb)](https://codebeat.co/projects/github-com-zh-explorer-shadowchain-master)
 
 # ShadowChain
@@ -57,8 +57,8 @@ $ SCStart confg.json
 - `server_host`节点监听的地址，必须。
 - `server_port`节点监听的端口，必须。
 - `password`为用户密码，必需。
-- `is_reverse_server`，非必需，表示本服务器为NAT穿透时处在内网中的server端。此时指定`server_host`，`server_port`作为公网的转发服务器地址。
-- `is_reverse_client`，非必需，表示本服务器在作为公网转发服务器,接受来自内网的连接，此时`out_protocol`中最后一个被指定的地址作为服务器的监听地址。
+- `is_reverse_server`，非必需，表示本服务器为NAT穿透时处在内网中的server端。此时指定`server_host`，`server_port`作为公网的转发服务器地址。(测试中..)
+- `is_reverse_client`，非必需，表示本服务器在作为公网转发服务器,接受来自内网的连接，此时`out_protocol`中最后一个被指定的地址作为服务器的监听地址。(测试中..)
 
 ### 3.3 协议栈
 在协议栈中的代理协议分为三种类型， base类型，client类型，server类型。
@@ -91,6 +91,8 @@ $ SCStart confg.json
 
 协议类型：`server`、`client`；根据协议出现位置决定。
 
+socks5协议支持基本的USERNAME/PASSWORD代理认证。在配置文件socks5协议配置字典中指定username和password字段即可开启。
+
 > **不建议使用socks5作为向公网转发的协议，因为socks5为明文协议且特征明显。只推荐作为高性能的本机转发协议。**
 
 ### 4.2 SC协议
@@ -108,7 +110,7 @@ ShadowChain特有协议。主要作用是加密流量，隐藏流量特征。SC�
 
 协议类型：`server`、`client`；根据协议出现位置决定。
 
-> **推荐将其与SC协议配套使用，最为代理转发协议！**
+> **推荐将其与SC协议配套使用，作为代理转发协议！**
 
 ### 4.4 PF协议
 端口转发协议，且具有额外的`host`和`port`参数。所有发送到此协议的数据其目标地址均为`host`和`port`指定地址。可以保证数据最终发往此地址，作为端口转发协议使用。
