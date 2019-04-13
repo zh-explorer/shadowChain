@@ -13,29 +13,40 @@
 # limitations under the License.
 
 
-#from distutils.core import setup
+# from distutils.core import setup
+import subprocess
+
+import sys
+import traceback
+
 from setuptools import setup
+
+long_description = ''
+try:
+    long_description = subprocess.check_output(['pandoc', 'README.md', '--to=rst'])
+except Exception as e:
+    sys.stderr.write("Failed to convert README.md through pandoc, proceeding anyway")
+    traceback.print_exc()
 setup(
     name='shadowChain',
-    version='0.0.1a4',
+    version='0.0.3',
     packages=['shadow', 'shadow.unit', 'shadow.protocols'],
     url='https://github.com/zh-explorer/shadowChain',
     license='Apache License 2.0',
     author='explorer',
     author_email='hsadkhk@gmail.com',
     description='A proxy tool',
+    long_description=long_description.decode(),
     entry_points={'console_scripts': [
         'SCStart=shadow.run_server:main_start',
     ]},
     install_requires=[
-        "jsonschema>2.3.0",
-        "pycryptodome>3.7"
+        "jsonschema >= 2.3.0",
+        "pycryptodome >= 3.6",
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
-
         'Intended Audience :: Customer Service',
-
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',

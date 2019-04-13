@@ -1,2 +1,2 @@
-jsonschema>=2.3.0
-pycryptodome>3.7
+jsonschema >= 2.3.0
+pycryptodome >= 3.6

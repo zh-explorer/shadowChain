@@ -1,2 +1,4 @@
 include LICENSE
-include config.json
+include README.md
+include MANIFEST.in
+recursive-exclude *.pyc
